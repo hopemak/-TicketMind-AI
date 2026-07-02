@@ -1,0 +1,21 @@
+{
+  "categories": [
+    "Account Access",
+    "Billing",
+    "Bug Report",
+    "Complaint",
+    "Feature Request",
+    "General Inquiry",
+    "Refund",
+    "Security",
+    "Shipping",
+    "Technical Issue"
+  ],
+  "priorities": [
+    "Low",
+    "Medium",
+    "High"
+  ],
+  "training_samples": 121,
+  "version": "1.0.0-pure-python"
+}
