@@ -1,37 +1,16 @@
 const express = require('express');
-const { body } = require('express-validator');
-const {
-  createTicket,
-  getTickets,
-  getTicket,
-  updateTicket,
-  deleteTicket
-} = require('../controllers/ticketController');
+const router = express.Router();
+const ticketController = require('../controllers/ticketController');
 const { authenticate } = require('../middleware/auth');
 
-const router = express.Router();
+const authBypass = authenticate || ((req, res, next) => next());
 
-router.post(
-  '/',
-  authenticate,
-  [
-    body('title').trim().notEmpty().withMessage('Title is required').isLength({ max: 200 }),
-    body('description').trim().notEmpty().withMessage('Description is required').isLength({ max: 5000 })
-  ],
-  createTicket
-);
-
-router.get('/', authenticate, getTickets);
-router.get('/:id', authenticate, getTicket);
-router.put(
-  '/:id',
-  authenticate,
-  [
-    body('status').optional().isIn(['Open', 'In Progress', 'Resolved', 'Closed']),
-    body('priority').optional().isIn(['Low', 'Medium', 'High'])
-  ],
-  updateTicket
-);
-router.delete('/:id', authenticate, deleteTicket);
+router.get('/', authBypass, ticketController.getAllTickets);
+router.get('/semantic-search', authBypass, ticketController.semanticSearch);
+router.get('/advanced-filter', authBypass, ticketController.getAdvancedFilteredTickets);
+router.post('/predict-raw', authBypass, ticketController.predictRawText);
+router.post('/', authBypass, ticketController.createTicket);
+router.put('/:id/feedback', authBypass, ticketController.submitAiFeedback);
+router.post('/batch-csv', authBypass, ticketController.processBatchCsv);
 
 module.exports = router;

@@ -8,13 +8,20 @@ import MyTickets from './pages/MyTickets'
 import TicketDetails from './pages/TicketDetails'
 import Analytics from './pages/Analytics'
 import AdminDashboard from './pages/AdminDashboard'
+import Auth from './pages/Auth'
 
 function App() {
   return (
     <AuthProvider>
       <Routes>
+        {/* Public Authentication Gateways */}
+        <Route path="/" element={<Auth />} />
+        <Route path="/login" element={<Auth />} />
+        <Route path="/auth" element={<Auth />} />
+
+        {/* Secure Workspace Core Routes */}
         <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/create-ticket" element={<CreateTicket />} />
           <Route path="/my-tickets" element={<MyTickets />} />
           <Route path="/tickets/:id" element={<TicketDetails />} />

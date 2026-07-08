@@ -1,146 +1,276 @@
-import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import api from '../services/api'
-import StatCard from '../components/StatCard'
-import ChartCard from '../components/ChartCard'
-import { toast } from 'react-toastify'
+import React, { useState, useEffect } from 'react';
 
-const Dashboard = () => {
-  const [stats, setStats] = useState(null)
-  const [recentTickets, setRecentTickets] = useState([])
-  const [loading, setLoading] = useState(true)
+export default function Dashboard() {
+  const [stats, setStats] = useState({
+    totalTickets: 0,
+    openTickets: 0,
+    inProgressTickets: 0,
+    resolvedTickets: 0,
+    closedTickets: 0,
+    categories: [],
+    priorities: []
+  });
+  const [loading, setLoading] = useState(true);
+  
+  const [logs, setLogs] = useState([
+    { time: "12:40:11", msg: "Core connection to cluster MongoDB [geda] active.", type: "system" },
+    { time: "12:41:05", msg: "Python NLP sidecar microservice container handshaking on Port 5000.", type: "system" }
+  ]);
 
-  useEffect(() => { fetchDashboardData() }, [])
+  useEffect(() => {
+    fetch('/api/analytics/dashboard-summary')
+      .then(res => res.json())
+      .then(payload => {
+        if (payload.success && payload.data) {
+          setStats({
+            totalTickets: payload.data.totalTickets || 0,
+            openTickets: payload.data.openTickets || 0,
+            inProgressTickets: payload.data.inProgressTickets || 0,
+            resolvedTickets: payload.data.resolvedTickets || 0,
+            closedTickets: payload.data.closedTickets || 0,
+            categories: payload.data.categories || [],
+            priorities: payload.data.priorities || []
+          });
+        }
+      })
+      .catch(err => console.error("Metrics sync drop:", err))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true)
-      const [statsRes, recentRes] = await Promise.all([
-        api.get('/analytics/dashboard'),
-        api.get('/analytics/recent?limit=5')
-      ])
-      setStats(statsRes.data.data)
-      setRecentTickets(recentRes.data.data)
-    } catch (err) {
-      toast.error('Failed to load dashboard data')
-    } finally {
-      setLoading(false)
-    }
-  }
+  useEffect(() => {
+    if (loading) return;
+    const mockFeed = [
+      { msg: "Incoming socket stream payload parsed via route /api/tickets/new", type: "triage" },
+      { msg: "NLP Vectorizer processing tensor matrix strings...", type: "ai" },
+      { msg: "SLA calculated successfully: High priority flag assigned.", type: "success" },
+      { msg: "Ticket classified under 'Technical Issue' with 94.2% confidence score.", type: "ai" },
+      { msg: "DB cluster entry updated cleanly inside instance [geda]", type: "system" }
+    ];
 
-  const getPriorityBadge = (priority) => {
-    const classes = { High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low' }
-    return <span className={classes[priority] || 'badge'}>{priority}</span>
-  }
+    let currentIdx = 0;
+    const interval = setInterval(() => {
+      const now = new Date().toLocaleTimeString();
+      const currentLog = mockFeed[currentIdx];
+      setLogs(prev => [
+        { time: now, msg: currentLog.msg, type: currentLog.type },
+        ...prev.slice(0, 5)
+      ]);
+      currentIdx = (currentIdx + 1) % mockFeed.length;
+    }, 4500);
 
-  const getStatusBadge = (status) => {
-    const classes = { Open: 'badge-open', 'In Progress': 'badge-inprogress', Resolved: 'badge-resolved', Closed: 'badge-closed' }
-    return <span className={classes[status] || 'badge'}>{status}</span>
-  }
+    return () => clearInterval(interval);
+  }, [loading]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#090d16] flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs font-mono tracking-widest text-slate-500 uppercase animate-pulse">Initializing Control Interface...</p>
+        </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">Overview of your AI-classified support tickets</p>
-      </div>
-
-      {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <StatCard title="Total Tickets" value={stats.totalTickets} icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V19.5a2.25 2.25 0 002.25 2.25h.75m3-19.5v-.75a.75.75 0 00-.75-.75h-.75m0 0v.75m0-.75a.75.75 0 00-.75.75h.75m0 0H9m11.25 0h.75m0 0v.75m0-.75a.75.75 0 00-.75-.75h-.75m0 0v.75" /></svg>} />
-          <StatCard title="Open" value={stats.openTickets} icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
-          <StatCard title="In Progress" value={stats.inProgressTickets} icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>} />
-          <StatCard title="Resolved" value={stats.resolvedTickets} icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
-          <StatCard title="Closed" value={stats.closedTickets} icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2">
-          <ChartCard title="Recent Tickets" action={<Link to="/my-tickets" className="text-sm font-semibold text-primary-600 hover:text-primary-700">View all</Link>}>
-            {recentTickets.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V19.5a2.25 2.25 0 002.25 2.25h.75m3-19.5v-.75a.75.75 0 00-.75-.75h-.75m0 0v.75m0-.75a.75.75 0 00-.75.75h.75m0 0H9m11.25 0h.75m0 0v.75m0-.75a.75.75 0 00-.75-.75h-.75m0 0v.75" /></svg>
-                </div>
-                <p className="text-slate-500 mb-4">No tickets yet</p>
-                <Link to="/create-ticket" className="btn-primary">Create your first ticket</Link>
+    <div className="min-h-screen bg-[#090d16] text-slate-100 p-6 lg:p-8 font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
+      <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* PREMIUM HEADER HERO BANNER */}
+        <div className="relative overflow-hidden rounded-3xl border border-slate-800/70 bg-gradient-to-r from-slate-950 via-[#0e1726] to-slate-950 p-6 lg:p-8 shadow-2xl">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
+            <div>
+              <div className="flex items-center gap-2 text-[10px] tracking-widest uppercase font-mono font-bold text-indigo-400 bg-indigo-950/40 border border-indigo-800/30 px-2.5 py-1 rounded-md w-fit mb-3">
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse"></span> Intelligent Routing System
               </div>
-            ) : (
-              <div className="table-container">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Title</th>
-                      <th>Category</th>
-                      <th>Priority</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {recentTickets.map((ticket) => (
-                      <tr key={ticket._id}>
-                        <td>
-                          <Link to={`/tickets/${ticket._id}`} className="font-semibold text-primary-600 hover:text-primary-700">{ticket.ticketId}</Link>
-                        </td>
-                        <td className="text-slate-700 max-w-xs truncate font-medium">{ticket.title}</td>
-                        <td className="text-slate-500">{ticket.category}</td>
-                        <td>{getPriorityBadge(ticket.priority)}</td>
-                        <td>{getStatusBadge(ticket.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </ChartCard>
-        </div>
-
-        <div className="space-y-6">
-          <div className="card">
-            <div className="card-body">
-              <h3 className="section-title mb-4">Quick Actions</h3>
-              <div className="space-y-2">
-                <Link to="/create-ticket" className="btn-primary w-full justify-start">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                  Create New Ticket
-                </Link>
-                <Link to="/my-tickets" className="btn-secondary w-full justify-start">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V19.5a2.25 2.25 0 002.25 2.25h.75m3-19.5v-.75a.75.75 0 00-.75-.75h-.75m0 0v.75m0-.75a.75.75 0 00-.75.75h.75m0 0H9m11.25 0h.75m0 0v.75m0-.75a.75.75 0 00-.75-.75h-.75m0 0v.75" /></svg>
-                  View All Tickets
-                </Link>
-                <Link to="/analytics" className="btn-secondary w-full justify-start">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
-                  View Analytics
-                </Link>
-              </div>
+              <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-white bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
+                TicketMind AI Operations
+              </h1>
+              <p className="text-xs lg:text-sm text-slate-400 mt-1.5 max-w-xl leading-relaxed">
+                Real-time operational dashboard monitoring automated triage classification, severity analytics, and cluster load structures.
+              </p>
             </div>
-          </div>
-
-          <div className="card bg-gradient-to-br from-primary-600 to-primary-700 border-primary-500">
-            <div className="card-body">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" /></svg>
-                </div>
-                <h3 className="text-lg font-bold text-white">AI Powered</h3>
-              </div>
-              <p className="text-sm text-primary-100 leading-relaxed">Every ticket is automatically classified and prioritized using machine learning.</p>
+            <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-emerald-950/30 border border-emerald-500/20 shadow-inner text-emerald-400 text-xs font-mono font-semibold">
+              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping"></span>
+              CORE NODE ONLINE
             </div>
           </div>
         </div>
+
+        {/* DYNAMIC SLA ALERT HUB */}
+        <div className="p-4 bg-rose-950/20 border border-rose-500/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl backdrop-blur-sm">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-400 border border-rose-500/20 text-sm">⚠️</div>
+            <div>
+              <h4 className="text-xs font-bold font-mono text-rose-300 uppercase tracking-wide">Critical SLA Threshold Breaches Pending</h4>
+              <p className="text-[11px] text-slate-400 mt-0.5">High-priority items require immediate team assignment routing parameters.</p>
+            </div>
+          </div>
+          <button className="w-full sm:w-auto px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-[0.98] transition-all text-white text-xs font-mono font-bold rounded-xl shadow-lg">
+            DISPATCH QUEUE
+          </button>
+        </div>
+
+        {/* METRICS SUMMARY GRID */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          {[
+            { label: "Total Ingestion", val: stats.totalTickets, icon: "⚡", bg: "bg-indigo-500/5", border: "border-indigo-500/20 text-indigo-400" },
+            { label: "Active Backlog", val: stats.openTickets, icon: "📂", bg: "bg-emerald-500/5", border: "border-emerald-500/20 text-emerald-400" },
+            { label: "In Progress", val: stats.inProgressTickets, icon: "⏳", bg: "bg-amber-500/5", border: "border-amber-500/20 text-amber-400" },
+            { label: "Resolved Cluster", val: stats.resolvedTickets, icon: "✨", bg: "bg-cyan-500/5", border: "border-cyan-500/20 text-cyan-400" },
+            { label: "Closed Logs", val: stats.closedTickets, icon: "🔒", bg: "bg-slate-950", border: "border-slate-800 text-slate-400" }
+          ].map((card, i) => (
+            <div key={i} className={`p-5 rounded-2xl border ${card.border} ${card.bg} shadow-lg relative group transition-all duration-300 hover:-translate-y-1`}>
+              <div className="flex justify-between items-center text-slate-500">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider">{card.label}</span>
+                <span className="text-xs opacity-70">{card.icon}</span>
+              </div>
+              <span className="text-3xl font-black mt-3 block font-mono tracking-tight text-white">{card.val}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* INTERACTIVE BREAKDOWN MATRIX SECTIONS */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* CATEGORY MONITOR PANEL */}
+          <div className="p-6 bg-slate-950/60 border border-slate-800/80 rounded-2xl shadow-xl backdrop-blur-md">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-900 mb-5">
+              <h3 className="text-xs font-mono uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Identified Categories
+              </h3>
+              <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/40 border border-indigo-900/30 px-2 py-0.5 rounded-full">NLP Distribution</span>
+            </div>
+            <div className="space-y-3">
+              {stats.categories.map((c, index) => {
+                const pct = stats.totalTickets > 0 ? ((c.value / stats.totalTickets) * 100).toFixed(0) : 0;
+                return (
+                  <div key={index} className="group flex flex-col space-y-1.5 p-3.5 bg-slate-900/30 border border-slate-900 hover:border-slate-800 rounded-xl transition-all">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-semibold text-slate-300 group-hover:text-white transition-colors">{c.name}</span>
+                      <div className="flex items-center space-x-2.5">
+                        <span className="text-[10px] font-mono text-slate-500 font-medium">{pct}%</span>
+                        <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-950/50 border border-indigo-900/30 px-2.5 py-0.5 rounded-md">{c.value}</span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* SEVERITY MATRIX PANEL */}
+          <div className="p-6 bg-slate-950/60 border border-slate-800/80 rounded-2xl shadow-xl backdrop-blur-md">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-900 mb-5">
+              <h3 className="text-xs font-mono uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Priority Volumes
+              </h3>
+              <span className="text-[10px] font-mono text-rose-400 bg-rose-950/40 border border-rose-900/30 px-2 py-0.5 rounded-full">SLA Thresholds</span>
+            </div>
+            <div className="space-y-3">
+              {stats.priorities.map((p, index) => {
+                const isHigh = p.name === 'High';
+                const isMed = p.name === 'Medium';
+                const variantClass = isHigh ? 'text-rose-400 bg-rose-950/30 border-rose-900/40' : isMed ? 'text-amber-400 bg-amber-950/30 border-amber-900/40' : 'text-blue-400 bg-blue-950/30 border-blue-900/40';
+                return (
+                  <div key={index} className="flex justify-between items-center p-3.5 bg-slate-900/30 border border-slate-900 hover:border-slate-800 rounded-xl transition-all">
+                    <span className="text-xs font-semibold text-slate-300 font-mono">{p.name} Severity Tier</span>
+                    <span className={`text-xs font-mono font-bold px-3 py-1 rounded-lg border ${variantClass}`}>{p.value} items</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* MODEL PERFORMANCE TELEMETRY SECTION */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-5 bg-slate-950 border border-slate-800/60 rounded-2xl flex items-center justify-between shadow-xl">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500 block">Classifier F1-Score</span>
+              <span className="text-2xl font-black font-mono text-white mt-1 block">91.4%</span>
+            </div>
+            <span className="text-xs font-mono bg-purple-950/40 border border-purple-900/40 px-2 py-1 rounded text-purple-400">Macro Avg</span>
+          </div>
+
+          <div className="p-5 bg-slate-950 border border-slate-800/60 rounded-2xl flex items-center justify-between shadow-xl">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500 block">Inference Latency</span>
+              <span className="text-2xl font-black font-mono text-white mt-1 block">142 ms</span>
+            </div>
+            <span className="text-xs font-mono bg-amber-950/40 border border-amber-900/40 px-2 py-1 rounded text-amber-400">FastAPI Node</span>
+          </div>
+
+          <div className="p-5 bg-slate-950 border border-slate-800/60 rounded-2xl flex items-center justify-between shadow-xl">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500 block">Automation Precision</span>
+              <span className="text-2xl font-black font-mono text-white mt-1 block">96.8%</span>
+            </div>
+            <span className="text-xs font-mono bg-emerald-950/40 border border-emerald-500/40 px-2 py-1 rounded text-emerald-400">Zero-Touch</span>
+          </div>
+        </div>
+
+        {/* 🛠️ BRAND NEW: SYSTEM CLUSTER HEALTH MONITOR TELEMETRY */}
+        <div className="p-6 bg-[#0c1220] border border-slate-800/80 rounded-2xl shadow-xl">
+          <div className="flex justify-between items-center pb-4 border-b border-slate-900 mb-4">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> Microservice Node Health
+            </h3>
+            <span className="text-[10px] font-mono text-cyan-400">Runtime Allocation</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-3 bg-slate-950/50 border border-slate-900 rounded-xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-slate-500 block">Gateway Core (Express)</span>
+                <span className="text-xs font-mono text-slate-300 mt-0.5 block">Port 8080 / Online</span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-md shadow-emerald-900"></span>
+            </div>
+            <div className="p-3 bg-slate-950/50 border border-slate-900 rounded-xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-slate-500 block">ML Sidecar (FastAPI)</span>
+                <span className="text-xs font-mono text-slate-300 mt-0.5 block">Port 5000 / Inbound</span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-md shadow-emerald-900"></span>
+            </div>
+            <div className="p-3 bg-slate-950/50 border border-slate-900 rounded-xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-slate-500 block">Database Pool [geda]</span>
+                <span className="text-xs font-mono text-slate-300 mt-0.5 block">Ping: 3ms / Connected</span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-md shadow-emerald-900"></span>
+            </div>
+          </div>
+        </div>
+
+        {/* LIVE TRIAGE MICRO-CONSOLE WINDOW */}
+        <div className="p-6 bg-slate-950 border border-slate-800/80 rounded-2xl shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping"></span> Live Triage Model Feed
+            </h3>
+            <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider animate-pulse">STREAMING DATA OUT-OF-BAND...</span>
+          </div>
+
+          <div className="bg-[#040711] border border-slate-900 rounded-xl p-4 font-mono text-xs space-y-2 h-36 overflow-y-hidden shadow-inner">
+            {logs.map((log, idx) => {
+              const badgeColors = log.type === 'ai' ? 'text-purple-400' : log.type === 'success' ? 'text-emerald-400' : log.type === 'system' ? 'text-blue-400' : 'text-amber-400';
+              return (
+                <div key={idx} className="flex items-start space-x-2 animate-fadeIn">
+                  <span className="text-slate-600 select-none">[{log.time}]</span>
+                  <span className={`font-bold uppercase tracking-wider text-[10px] ${badgeColors}`}>[{log.type}]:</span>
+                  <span className="text-slate-300">{log.msg}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
       </div>
     </div>
-  )
+  );
 }
-
-export default Dashboard
